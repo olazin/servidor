@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificador de Basura</title>
+</head>
+<body>
+    <h1>Clasificador de Basura</h1>
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
+        <button type="submit">Clasificar</button>
+    </form>
+
+    {% if prediction %}
+        <h2>Resultado:</h2>
+        <p>Predicción: {{ prediction }}</p>
+        <p>Confianza: {{ confidence | round(2) * 100 }}%</p>
+        <img src="{{ image_path }}" alt="Imagen cargada" style="max-width: 300px;">
+    {% endif %}
+</body>
+</html>
