@@ -1,11 +1,11 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-from flask import Flask, render_template, request
+from flask import Flask, request, jsonify
 from PIL import Image
 import numpy as np
 import tensorflow as tf
 import cv2
-import os
+import io
 
 # Inicializar Flask
 app = Flask(__name__)
@@ -35,40 +35,45 @@ def preprocess_image_with_opencv(img_array):
 
     return img_array
 
-# Ruta principal
-@app.route("/", methods=["GET", "POST"])
+# Ruta para la página principal
+@app.route("/", methods=["GET"])
 def index():
-    prediction = None
-    confidence = None
-    uploaded_image_path = None
+    return "¡Bienvenido al servidor de clasificación de basura!"
 
-    if request.method == "POST":
-        # Obtener la imagen cargada
-        if "image" in request.files:
-            image_file = request.files["image"]
-            if image_file:
-                # Verificar y crear la carpeta static si no existe
-                if not os.path.exists("static"):
-                    os.makedirs("static")
+# Ruta para recibir la imagen del ESP32 y devolver la predicción
+@app.route("/predict", methods=["POST"])
+def predict():
+    # Verificar si la solicitud contiene un archivo de imagen
+    if "image" not in request.files:
+        return jsonify({"error": "No image file found in the request"}), 400
+    
+    image_file = request.files["image"]
+    if not image_file:
+        return jsonify({"error": "No image file provided"}), 400
 
-                # Guardar la imagen cargada temporalmente
-                uploaded_image_path = os.path.join("static", image_file.filename)
-                image_file.save(uploaded_image_path)
+    # Leer la imagen desde el archivo recibido
+    img = Image.open(image_file)
+    img_array = np.array(img)
 
-                # Preprocesar la imagen
-                img = Image.open(uploaded_image_path)
-                img_array = np.array(img)
-                processed_image = preprocess_image_with_opencv(img_array)
+    # Preprocesar la imagen
+    try:
+        processed_image = preprocess_image_with_opencv(img_array)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
-                # Realizar la predicción
-                predictions = model.predict(processed_image)
-                prediction = classes[np.argmax(predictions)]
-                confidence = np.max(predictions)
+    # Realizar la predicción
+    predictions = model.predict(processed_image)
+    prediction = classes[np.argmax(predictions)]
+    confidence = np.max(predictions)
 
-    return render_template("index.html", prediction=prediction, confidence=confidence, image_path=uploaded_image_path)
-
+    # Retornar la respuesta con la predicción y confianza
+    return jsonify({
+        "prediction": prediction,
+        "confidence": float(confidence)
+    })
 
 # Ejecutar el servidor
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
     #app.run(debug=True)
+
